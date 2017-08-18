@@ -76,14 +76,14 @@ def create_model_fn(hparams, model_impl):
       probs, loss = model_impl(
           hparams,
           mode,
-          tf.concat(0, all_contexts),
-          tf.concat(0, all_context_lens),
-          tf.concat(0, all_utterances),
-          tf.concat(0, all_utterance_lens),
-          tf.concat(0, all_targets))
+          tf.concat(all_contexts, axis=0),
+          tf.concat(all_context_lens, axis=0),
+          tf.concat(all_utterances, axis=0),
+          tf.concat(all_utterance_lens, axis=0),
+          tf.concat(all_targets, axis=0))
 
-      split_probs = tf.split(0, 10, probs)
-      shaped_probs = tf.concat(1, split_probs)
+      split_probs = tf.split(probs, 10, axis=0)
+      shaped_probs = tf.concat(split_probs, axis=1)
 
       # Add summaries
       tf.histogram_summary("eval_correct_probs_hist", split_probs[0])

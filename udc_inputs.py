@@ -19,7 +19,7 @@ def get_feature_columns(mode):
     feature_columns.append(tf.contrib.layers.real_valued_column(
       column_name="label", dimension=1, dtype=tf.int64))
 
-  if mode == tf.contrib.learn.ModeKeys.EVAL:
+  if mode == tf.contrib.learn.ModeKeys.EVAL or mode == tf.contrib.learn.ModeKeys.INFER:
     # During evaluation we have distractors
     for i in range(9):
       feature_columns.append(tf.contrib.layers.real_valued_column(

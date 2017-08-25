@@ -24,6 +24,7 @@ FLAGS = tf.flags.FLAGS
 TRAIN_PATH = os.path.join(FLAGS.input_dir, "train.csv")
 VALIDATION_PATH = os.path.join(FLAGS.input_dir, "valid.csv")
 TEST_PATH = os.path.join(FLAGS.input_dir, "test.csv")
+INFER_PATH = os.path.join(FLAGS.input_dir, "infer.csv")
 
 def tokenizer_fn(iterator):
   return (x.split(" ") for x in iterator)
@@ -163,6 +164,12 @@ if __name__ == "__main__":
 
   # Save vocab processor
   vocab.save(os.path.join(FLAGS.output_dir, "vocab_processor.bin"))
+
+  # Create infer.tfrecords
+  create_tfrecords_file(
+      input_filename=INFER_PATH,
+      output_filename=os.path.join(FLAGS.output_dir, "infer.tfrecords"),
+      example_fn=functools.partial(create_example_test, vocab=vocab))
 
   # Create validation.tfrecords
   create_tfrecords_file(

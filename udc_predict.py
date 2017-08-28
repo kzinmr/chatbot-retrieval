@@ -1,18 +1,20 @@
 import os
-import time
-import itertools
 import sys
+import json
 import numpy as np
 import tensorflow as tf
-import udc_model
-import udc_hparams
-import udc_metrics
+import pandas as pd
 import udc_inputs
+import udc_model
+import udc_metrics
+import rnn_hparams
+import cnn_hparams
 from models.dual_encoder import dual_encoder_model
-from models.helpers import load_vocab
+from models.abcnn import abcnn_model
 
+tf.flags.DEFINE_string("input_dir", "./data", "Path of infer data in CSV format")
 tf.flags.DEFINE_string("model_dir", None, "Directory to load model checkpoints from")
-tf.flags.DEFINE_string("vocab_processor_file", "./data/vocab_processor.bin", "Saved vocabulary processor file")
+tf.flags.DEFINE_string("model", "rnn", "Directory to store model checkpoints (defaults to ./runs)")
 FLAGS = tf.flags.FLAGS
 
 if not FLAGS.model_dir:
@@ -22,13 +24,20 @@ if not FLAGS.model_dir:
 def tokenizer_fn(iterator):
   return (x.split(" ") for x in iterator)
 
+INPUT_DIR=os.path.join(FLAGS.input_dir, FLAGS.model)
+OUTPUT_PATH=os.path.join(FLAGS.input_dir, FLAGS.model, 'output.json')
+
 # Load vocabulary
 vp = tf.contrib.learn.preprocessing.VocabularyProcessor.restore(
-  FLAGS.vocab_processor_file)
+  os.path.join(INPUT_DIR, 'vocab_processor.bin'))
 
 # Load your own data here
-INPUT_CONTEXT = "Example context"
-POTENTIAL_RESPONSES = ["Response 1", "Response 2"]
+# INPUT_CONTEXT = "Example context"
+# POTENTIAL_RESPONSES = ["Response 1", "Response 2"]
+
+df = pd.read_csv(os.path.join(INPUT_DIR, 'infer.csv'))
+INPUT_CONTEXT_L = np.array(df['Answer'])
+POTENTIAL_RESPONSES_L = np.array([df['Question']]+[df['Distractor_{}'.format(i)] for i in range(9)]).T
 
 def get_features(context, utterance):
   context_matrix = np.array(list(vp.transform([context])))
@@ -44,15 +53,37 @@ def get_features(context, utterance):
   return features, None
 
 if __name__ == "__main__":
-  hparams = udc_hparams.create_hparams()
-  model_fn = udc_model.create_model_fn(hparams, model_impl=dual_encoder_model)
+  if FLAGS.model == "rnn":
+    hparams = rnn_hparams.create_hparams()
+    model_fn = udc_model.create_model_fn(hparams, model_impl=dual_encoder_model)
+  elif FLAGS.model == "cnn":
+    hparams = cnn_hparams.create_hparams()
+    model_fn = udc_model.create_model_fn(hparams, model_impl=abcnn_model)
+  else:
+    print("invalid model")
+    exit(1)
+
   estimator = tf.contrib.learn.Estimator(model_fn=model_fn, model_dir=FLAGS.model_dir)
 
-  # Ugly hack, seems to be a bug in Tensorflow
-  # estimator.predict doesn't work without this line
-  estimator._targets_info = tf.contrib.learn.estimators.tensor_signature.TensorSignature(tf.constant(0, shape=[1,1]))
+  ds = []
+  for INPUT_CONTEXT, POTENTIAL_RESPONSES in zip(INPUT_CONTEXT_L, POTENTIAL_RESPONSES_L):
+    a = POTENTIAL_RESPONSES[0]
+    m = ''
+    ap = 0
+    maxp = 0
+    for r in POTENTIAL_RESPONSES:
+      prob = estimator.predict(input_fn=lambda: get_features(INPUT_CONTEXT, r))
+      prob = next(prob)[0]
+      # print("{}: {:g}".format(r, prob))
+      if r == a:
+        ap = prob
+      if maxp < prob:
+        m = r
+        maxp = prob
 
-  print("Context: {}".format(INPUT_CONTEXT))
-  for r in POTENTIAL_RESPONSES:
-    prob = estimator.predict(input_fn=lambda: get_features(INPUT_CONTEXT, r))
-    print("{}: {:g}".format(r, prob[0,0]))
+    ds.append({'max_prob': '{:g}'.format(maxp), 'true_prob':'{:g}'.format(ap),
+               'max_q': m, 'true_q': a, 'match': 1 if a == m else 0})
+    # print("True {}:{}".format(a, ap))
+    # print("Max {}:{}".format(m, maxp))
+  with open(OUTPUT_PATH, 'w') as fp:
+    json.dump(ds, fp)

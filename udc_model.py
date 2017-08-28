@@ -1,5 +1,5 @@
 import tensorflow as tf
-import sys
+
 
 def get_id_feature(features, key, len_key, max_len):
   ids = features[key]

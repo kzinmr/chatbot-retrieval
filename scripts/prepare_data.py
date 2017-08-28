@@ -17,7 +17,7 @@ tf.flags.DEFINE_string(
 
 tf.flags.DEFINE_string(
   "output_dir", os.path.abspath("./data"),
-  "Output directory for TFrEcord files (default = './data')")
+  "Output directory for TFrecord files (default = './data')")
 
 FLAGS = tf.flags.FLAGS
 

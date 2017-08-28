@@ -1,6 +1,7 @@
 import tensorflow as tf
 
-TEXT_FEATURE_SIZE = 160
+# Notice that this must match with max_sentence_len in prepare_data.py
+TEXT_FEATURE_SIZE = 40
 
 def get_feature_columns(mode):
   feature_columns = []

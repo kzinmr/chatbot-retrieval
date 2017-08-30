@@ -15,6 +15,7 @@ from models.abcnn import abcnn_model
 tf.flags.DEFINE_string("input_dir", "./data", "Path of infer data in CSV format")
 tf.flags.DEFINE_string("model_dir", None, "Directory to load model checkpoints from")
 tf.flags.DEFINE_string("model", "rnn", "Directory to store model checkpoints (defaults to ./runs)")
+tf.flags.DEFINE_string("print_answer", True, "print Answer in json")
 FLAGS = tf.flags.FLAGS
 
 if not FLAGS.model_dir:
@@ -25,7 +26,7 @@ def tokenizer_fn(iterator):
   return (x.split(" ") for x in iterator)
 
 INPUT_DIR=os.path.join(FLAGS.input_dir, FLAGS.model)
-OUTPUT_PATH=os.path.join(FLAGS.input_dir, FLAGS.model, 'output.json')
+OUTPUT_PATH=os.path.join(FLAGS.input_dir, FLAGS.model, 'predict.json')
 
 # Load vocabulary
 vp = tf.contrib.learn.preprocessing.VocabularyProcessor.restore(
@@ -81,8 +82,13 @@ if __name__ == "__main__":
         m = r
         maxp = prob
 
-    ds.append({'max_prob': '{:g}'.format(maxp), 'true_prob':'{:g}'.format(ap),
-               'max_q': m, 'true_q': a, 'match': 1 if a == m else 0})
+    if FLAGS.print_answer:
+      ds.append({'Answer':INPUT_CONTEXT,
+                 'max_prob': '{:g}'.format(maxp), 'true_prob':'{:g}'.format(ap),
+                 'max_q': m, 'true_q': a, 'match': 1 if a == m else 0})
+    else:
+      ds.append({'max_prob': '{:g}'.format(maxp), 'true_prob':'{:g}'.format(ap),
+                 'max_q': m, 'true_q': a, 'match': 1 if a == m else 0})
     # print("True {}:{}".format(a, ap))
     # print("Max {}:{}".format(m, maxp))
   with open(OUTPUT_PATH, 'w') as fp:
